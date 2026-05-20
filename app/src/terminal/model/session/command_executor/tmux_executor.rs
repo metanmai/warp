@@ -10,9 +10,9 @@ use chrono::DateTime;
 use parking_lot::Mutex;
 use warp_completer::completer::{CommandExitStatus, CommandOutput};
 use warp_core::command::ExitCode;
+use warp_core::datetime_ext::DateTimeExt;
 
 use super::{CommandExecutor, ExecuteCommandOptions, ExecutorCommandEvent};
-use crate::server::datetime_ext::DateTimeExt;
 use crate::terminal::event::ExecutedExecutorCommandEvent;
 use crate::terminal::model::tmux::commands::TmuxCommand;
 use crate::terminal::shell::Shell;

@@ -3,9 +3,9 @@ use std::fmt;
 use bounded_vec_deque::BoundedVecDeque;
 use chrono::{DateTime, FixedOffset};
 use enclose::enclose;
+use warp_core::datetime_ext::DateTimeExt;
 use warpui::{Entity, ModelContext, SingletonEntity};
 
-use crate::server::datetime_ext::DateTimeExt;
 use crate::server::server_api::ServerApiProvider;
 
 /// Maximum number of network log items retained in memory. Matches the

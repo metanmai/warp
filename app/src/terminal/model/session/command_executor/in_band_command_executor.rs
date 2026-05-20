@@ -11,13 +11,13 @@ use chrono::DateTime;
 use parking_lot::{Mutex, MutexGuard};
 use warp_completer::completer::{CommandExitStatus, CommandOutput};
 use warp_core::command::ExitCode;
+use warp_core::datetime_ext::DateTimeExt;
 use warp_terminal::model::Point;
 use warp_util::on_cancel::OnCancelFutureExt;
 use warpui::r#async::block_on;
 
 use super::ExecuteCommandOptions;
 use crate::safe_info;
-use crate::server::datetime_ext::DateTimeExt;
 use crate::terminal::event::ExecutedExecutorCommandEvent;
 use crate::terminal::model::session::command_executor::{
     shared, CommandExecutor, ExecutorCommandEvent,
