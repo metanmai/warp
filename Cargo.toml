@@ -256,7 +256,7 @@ serde_urlencoded = "0.7"
 serde_with = "2.0.1"
 serde_yaml = "0.8"
 # TESTING-ONLY: local path dep so warp-4 compiles against the
-# `AmbientSetupPhaseEnded` variant on `harry/empty-prompt-handoff-local`.
+# `CloudModeSetupPhaseEnded` variant on `harry/empty-prompt-handoff-local`.
 # Revert to `git = ..., rev = ...` before shipping.
 # session-sharing-protocol = { git = "https://github.com/warpdotdev/session-sharing-protocol.git", rev = "3a12b871dfd1019a66057e4d9b7d5c812b73ee8c" }
 session-sharing-protocol = { path = "../session-sharing-protocol" }
