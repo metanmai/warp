@@ -21,7 +21,7 @@ mod tests {
     use crate::entry::{DirectoryEntry, Entry, FileMetadata};
     use crate::file_tree_store::{FileTreeEntry, FileTreeEntryState, FileTreeState};
     use crate::local_model::{
-        GetContentsArgs, IndexedRepoState, LocalRepoMetadataModel, RepoUpdate,
+        GetContentsArgs, IndexedRepoState, LocalRepoMetadataModel, RepoUpdate, RepositoryCoverage,
         RepositoryMetadataEvent,
     };
     use crate::repositories::DetectedRepositories;
@@ -32,6 +32,7 @@ mod tests {
         fn new_for_test() -> Self {
             Self {
                 repositories: HashMap::new(),
+                repository_coverage: HashMap::new(),
                 lazy_loaded_paths: Default::default(),
                 #[cfg(feature = "local_fs")]
                 watcher: Default::default(),
@@ -104,6 +105,7 @@ mod tests {
                         .add_repository_internal(
                             repo_path.clone(),
                             empty_repo_state(&repo_path),
+                            RepositoryCoverage::Complete,
                             ctx,
                         )
                         .expect("repository should index");
@@ -1342,6 +1344,7 @@ Thumbs.db
                         let result1 = model.add_repository_internal(
                             StandardizedPath::from_local_canonicalized(&real_repo).unwrap(),
                             state.clone(),
+                            RepositoryCoverage::Complete,
                             ctx,
                         );
                         assert!(result1.is_ok());
@@ -1350,6 +1353,7 @@ Thumbs.db
                         let result2 = model.add_repository_internal(
                             StandardizedPath::from_local_canonicalized(&symlink_repo).unwrap(),
                             state.clone(),
+                            RepositoryCoverage::Complete,
                             ctx,
                         );
                         assert!(result2.is_ok());
@@ -1358,6 +1362,7 @@ Thumbs.db
                         let result3 = model.add_repository_internal(
                             StandardizedPath::from_local_canonicalized(&relative_repo).unwrap(),
                             state.clone(),
+                            RepositoryCoverage::Complete,
                             ctx,
                         );
                         assert!(result3.is_ok());

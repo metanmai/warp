@@ -98,6 +98,14 @@ pub enum IndexedRepoState {
     /// Repository indexing failed with the given error.
     Failed(RepoMetadataError),
 }
+/// Coverage of an indexed local repository tree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RepositoryCoverage {
+    /// The tree was indexed at full depth.
+    Complete,
+    /// The tree was indexed only partially after exceeding the full-index limit.
+    Degraded,
+}
 
 impl IndexedRepoState {
     pub fn pending() -> Self {
@@ -134,6 +142,8 @@ impl IndexedRepoState {
 pub struct LocalRepoMetadataModel {
     /// Mapping from repository path to its indexed state.
     repositories: HashMap<StandardizedPath, IndexedRepoState>,
+    /// Mapping from successfully indexed repository paths to tree coverage.
+    repository_coverage: HashMap<StandardizedPath, RepositoryCoverage>,
     /// Refcounts for lazily-loaded standalone paths tracked in the model.
     lazy_loaded_paths: HashMap<StandardizedPath, usize>,
     /// File system watcher for monitoring changes.
@@ -227,6 +237,7 @@ impl LocalRepoMetadataModel {
     pub fn new(ctx: &mut ModelContext<Self>) -> Self {
         let mut model = Self {
             repositories: HashMap::new(),
+            repository_coverage: HashMap::new(),
             lazy_loaded_paths: HashMap::new(),
             #[cfg(feature = "local_fs")]
             watcher: None,
@@ -401,6 +412,7 @@ impl LocalRepoMetadataModel {
         &mut self,
         repo_path: StandardizedPath,
         state: FileTreeState,
+        coverage: RepositoryCoverage,
         ctx: &mut ModelContext<Self>,
     ) -> Result<(), RepoMetadataError> {
         let local_path = repo_path
@@ -435,6 +447,7 @@ impl LocalRepoMetadataModel {
 
         // Insert the repository state into the map
         let repo_path_for_event = repo_path.clone();
+        self.repository_coverage.insert(repo_path.clone(), coverage);
         self.replace_repository_state(repo_path, IndexedRepoState::Indexed(state));
 
         ctx.emit(RepositoryMetadataEvent::RepositoryUpdated {
@@ -485,6 +498,14 @@ impl LocalRepoMetadataModel {
     /// repository is not being tracked.
     pub fn repository_state(&self, repo_path: &StandardizedPath) -> Option<&IndexedRepoState> {
         self.repositories.get(repo_path)
+    }
+    /// Returns whether an indexed local repository tree is complete or degraded.
+    pub fn repository_coverage(&self, repo_path: &StandardizedPath) -> Option<RepositoryCoverage> {
+        self.repository_coverage.get(repo_path).copied()
+    }
+    /// Returns all tracked local repository paths, including pending and failed repositories.
+    pub fn repository_paths(&self) -> impl Iterator<Item = &StandardizedPath> {
+        self.repositories.keys()
     }
 
     /// Checks if a repository is being tracked and indexed.
@@ -551,7 +572,7 @@ impl LocalRepoMetadataModel {
         .map_err(RepoMetadataError::BuildTree)?;
 
         let state = FileTreeState::new_lazy_loaded(root_entry);
-        self.add_repository_internal(path.clone(), state, ctx)?;
+        self.add_repository_internal(path.clone(), state, RepositoryCoverage::Degraded, ctx)?;
         self.lazy_loaded_paths.insert(path.clone(), 1);
         Ok(())
     }
@@ -920,6 +941,7 @@ impl LocalRepoMetadataModel {
         let gitignores = gitignores_for_directory(&local_path);
 
         // Mark the repository as pending to prevent duplicate work
+        self.repository_coverage.remove(&std_path);
         self.replace_repository_state(std_path.clone(), IndexedRepoState::pending());
 
         // Use the provided repository handle instead of creating a new one
@@ -1012,8 +1034,17 @@ impl LocalRepoMetadataModel {
                         let state =
                             FileTreeState::new(root_entry, gitignores_for_build, Some(repository_handle));
 
-                        if let Err(e) =
-                            model.add_repository_internal(std_repo_path.clone(), state, ctx)
+                        let coverage = if indexed_with_limit {
+                            RepositoryCoverage::Degraded
+                        } else {
+                            RepositoryCoverage::Complete
+                        };
+                        if let Err(e) = model.add_repository_internal(
+                            std_repo_path.clone(),
+                            state,
+                            coverage,
+                            ctx,
+                        )
                         {
                             log::warn!("Failed to add repository {repo_path_str}: {e:?}");
                             // On failure, mark the repository as failed so waiters are notified.
@@ -1093,6 +1124,7 @@ impl LocalRepoMetadataModel {
         &mut self,
         repo_path: &StandardizedPath,
     ) -> Option<IndexedRepoState> {
+        self.repository_coverage.remove(repo_path);
         let previous = self.repositories.remove(repo_path);
         if let Some(previous) = &previous {
             previous.complete_if_pending();
@@ -1107,6 +1139,7 @@ impl LocalRepoMetadataModel {
         error: RepoMetadataError,
         ctx: &mut ModelContext<Self>,
     ) {
+        self.repository_coverage.remove(&repo_path);
         self.replace_repository_state(repo_path.clone(), IndexedRepoState::Failed(error));
         ctx.emit(RepositoryMetadataEvent::UpdatingRepositoryFailed { path: repo_path });
     }
@@ -1166,7 +1199,27 @@ pub(crate) fn collect_contents_recursive<'a>(
 impl LocalRepoMetadataModel {
     /// Insert a repository state directly for testing purposes.
     pub fn insert_test_state(&mut self, repo_path: StandardizedPath, state: FileTreeState) {
+        self.insert_test_state_with_coverage(repo_path, state, RepositoryCoverage::Complete);
+    }
+
+    /// Insert a repository state with explicit coverage directly for testing purposes.
+    pub fn insert_test_state_with_coverage(
+        &mut self,
+        repo_path: StandardizedPath,
+        state: FileTreeState,
+        coverage: RepositoryCoverage,
+    ) {
+        self.repository_coverage.insert(repo_path.clone(), coverage);
         self.replace_repository_state(repo_path, IndexedRepoState::Indexed(state));
+    }
+
+    /// Insert a failed local repository state directly for testing fallback consumers.
+    pub fn insert_test_failed_state(&mut self, repo_path: StandardizedPath) {
+        self.repository_coverage.remove(&repo_path);
+        self.replace_repository_state(
+            repo_path,
+            IndexedRepoState::Failed(RepoMetadataError::InvalidPath("test failure".to_string())),
+        );
     }
 }
 

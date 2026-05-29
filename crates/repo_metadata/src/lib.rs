@@ -65,7 +65,7 @@ pub fn is_in_repo(_path: &str, _app: &warpui::AppContext) -> bool {
 }
 pub use file_tree_store::FileTreeEntry;
 pub use file_tree_update::RepoMetadataUpdate;
-pub use local_model::{LocalRepoMetadataModel, RepoContent};
+pub use local_model::{LocalRepoMetadataModel, RepoContent, RepositoryCoverage};
 pub use remote_model::RemoteRepoMetadataModel;
 pub use repository_identifier::{RemoteRepositoryIdentifier, RepositoryIdentifier};
 pub use wrapper_model::{RepoMetadataEvent, RepoMetadataModel};
