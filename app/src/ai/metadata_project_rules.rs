@@ -129,23 +129,34 @@ impl MetadataProjectRulesModel {
             );
             return;
         }
+        self.spawn_read_project_rules_from_files(
+            repo_id.clone(),
+            refresh_generation,
+            root_path,
+            rule_paths,
+            ctx,
+        );
+    }
+    fn spawn_read_project_rules_from_files(
+        &mut self,
+        repo_id: RepositoryIdentifier,
+        refresh_generation: u64,
+        root_path: LocalOrRemotePath,
+        rule_paths: Vec<LocalOrRemotePath>,
+        ctx: &mut ModelContext<Self>,
+    ) {
         let Some(read_rule_contents) = read_project_rule_contents(rule_paths, ctx) else {
             return;
         };
-        let repo_id_for_result = repo_id.clone();
-
         ctx.spawn(
             async move {
                 let rule_contents = read_rule_contents.await?;
-                Ok::<(LocalOrRemotePath, Vec<ProjectRule>), anyhow::Error>((
-                    root_path,
-                    build_project_rules(rule_contents),
-                ))
+                Ok::<Vec<ProjectRule>, anyhow::Error>(build_project_rules(rule_contents))
             },
-            move |me, hydrated_rules, ctx| match hydrated_rules {
-                Ok((root_path, rules)) => {
+            move |me, rules, ctx| match rules {
+                Ok(rules) => {
                     me.apply_project_rules_from_metadata_if_current(
-                        &repo_id_for_result,
+                        &repo_id,
                         refresh_generation,
                         root_path,
                         rules,
