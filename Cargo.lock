@@ -6289,6 +6289,7 @@ dependencies = [
  "tokio",
  "tower",
  "tower-http",
+ "warp_core",
  "warpui",
 ]
 
@@ -12204,8 +12205,10 @@ dependencies = [
  "async-fs",
  "chrono",
  "futures",
+ "instant",
  "log",
  "thiserror 2.0.17",
+ "tokio",
  "warp_core",
  "warpui",
 ]

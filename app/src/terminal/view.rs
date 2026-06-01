@@ -7663,6 +7663,9 @@ impl TerminalView {
         if self.conversation_ended_tombstone_view_id.is_some() {
             return false;
         }
+        if self.blocks_cloud_followups_for_ambient_agent_session_from_model(model, app) {
+            return false;
+        }
         if self.has_active_cli_agent_input_session(app) {
             return true;
         }
@@ -20714,6 +20717,14 @@ impl TerminalView {
         if !FeatureFlag::HandoffCloudCloud.is_enabled() {
             return false;
         }
+        let blocks_cloud_followups = {
+            let model = self.model.lock();
+            self.blocks_cloud_followups_for_ambient_agent_session_from_model(&model, ctx)
+        };
+        if blocks_cloud_followups {
+            self.pending_cloud_followup_task_id = None;
+            return false;
+        }
         let Some(task_id) = self
             .pending_cloud_followup_task_id
             .or_else(|| self.owned_ambient_agent_task_id(ctx))
@@ -26587,7 +26598,9 @@ impl TypedActionView for TerminalView {
                     warp_md_path.push(WARP_MD_PATH);
                     #[cfg(feature = "local_fs")]
                     ctx.emit(Event::OpenCodeInWarp {
-                        source: CodeSource::ProjectRules { path: warp_md_path },
+                        source: CodeSource::ProjectRules {
+                            location: LocalOrRemotePath::Local(warp_md_path),
+                        },
                         layout: *crate::util::file::external_editor::EditorSettings::as_ref(ctx)
                             .open_file_layout
                             .value(),
@@ -26623,7 +26636,7 @@ impl TypedActionView for TerminalView {
                             ctx.emit(Event::OpenCodeInWarp {
                                 source: CodeSource::Skill {
                                     reference: skill_reference.clone(),
-                                    path: path.clone(),
+                                    location: path.clone(),
                                     origin: crate::ai::skills::SkillOpenOrigin::OpenSkillCommand,
                                 },
                                 layout:
